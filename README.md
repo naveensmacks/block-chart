@@ -82,3 +82,6 @@ The second chart is the BASEFEE of each block. So the X-axis is the block number
 The third chart is the ratio of gasUsed over gasLimit (plot this as a percentage). 
 What do you notice about the relationship between this ratio and the BASEFEE?
 -Current block's BaseFee increase/decrease based on the previous block's gas utilization rate. i.e, if previous block's gas utilization rate increase to +10% then the next block's BaseFee may increase and viceversa.
+
+--Add review comments
+Display chart in ERC20 big tokens by using decimals
