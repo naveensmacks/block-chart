@@ -11,8 +11,6 @@ const BaseFeeVsGasUtilizationChart = ({ erc20Address, alchemy }) => {
   const [chartOptions, setChartOptions] = useState([]);
   const [gasChartData, setGasChartData] = useState([]);
   const [gasChartOptions, setGasChartOptions] = useState([]);
-  // const [transferChartData, setTransferChartData] = useState([]);
-  // const [transferChartOptions, setTransferChartOptions] = useState([]);
   const [socket, setSocket] = useState(null);
   const getChartData = (baseFeeData, label) => {
     let cd = {
@@ -72,7 +70,7 @@ const BaseFeeVsGasUtilizationChart = ({ erc20Address, alchemy }) => {
       for (let i = 0; i < 10; i++) {
         const block = await alchemy.core.getBlock(latestBlockNumber);
         baseFeeData[latestBlockNumber] = parseFloat(
-          ethers.formatUnits(block.baseFeePerGas.toString(), "gwei")
+          ethers.utils.formatUnits(block.baseFeePerGas.toString(), "gwei")
         );
         gasUtilRate[latestBlockNumber] = parseFloat(block.gasUsed/block.gasLimit)*100;
         latestBlockNumber--;
@@ -131,7 +129,7 @@ const BaseFeeVsGasUtilizationChart = ({ erc20Address, alchemy }) => {
   const addNewBlock = async (blockNumber) => {
     const block = await alchemy.core.getBlock(blockNumber);
     let baseFee = parseFloat(
-      ethers.formatUnits(block.baseFeePerGas.toString(), "gwei")
+      ethers.utils.formatUnits(block.baseFeePerGas.toString(), "gwei")
     );
     let gasUtilRate = parseFloat(block.gasUsed/block.gasLimit)*100;
 
@@ -166,7 +164,7 @@ const BaseFeeVsGasUtilizationChart = ({ erc20Address, alchemy }) => {
 
   return (
     <div>
-      <h2>Base Chart Vs Gas Utilization chart</h2>
+      <h2>Base Fee Chart Vs Gas Utilization chart</h2>
       {!chartData.datasets && <h4>Fetching block data from the latest blocks please wait...</h4>}
 
       {chartData.datasets && (

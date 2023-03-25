@@ -3,42 +3,57 @@ import { Line } from "react-chartjs-2";
 // eslint-disable-next-line no-unused-vars
 import { Chart } from "chart.js/auto";
 import { Card } from "react-bootstrap";
+import { ethers, utils, BigNumber } from "ethers";
 
-const TransferChart = ({ erc20Address, alchemy }) => {
+const TransferChart = ({ erc20Address, alchemy, contractABI }) => {
   const [chartData, setChartData] = useState([]);
   const [chartOptions, setChartOptions] = useState([]);
   const [socket, setSocket] = useState(null);
 
+  function getTotalVolumeTransfer(logs) {
+    let totalVolume = BigNumber.from(0);
+  
+    for (const log of logs) {
+      const transferAmount = BigNumber.from(log.data);
+      totalVolume = totalVolume.add(transferAmount);
+    }
+  
+    return totalVolume;
+  }
+
+  const transformLogs = async(blockNumber) =>{
+    let transferData = {};
+    let promises = []; 
+    const contract = new ethers.Contract(erc20Address, contractABI, await alchemy.config.getProvider());
+    const decimals = await contract.decimals();
+    console.log("contract decimals : ", decimals);
+    for(let i =0; i< 10; i++){
+      let promise = alchemy.core.getLogs({
+          address: erc20Address,
+          topics: ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",],
+          fromBlock: utils.hexValue(blockNumber - i),
+          toBlock: utils.hexValue(blockNumber - i),
+        }).then((logs) => {
+          console.log("blockNumber: ",blockNumber - i);
+          console.log("Transfer logs:", logs);
+          const totalVolume = getTotalVolumeTransfer(logs);
+          console.log("Total volume transfer in latest block:",totalVolume.toString());
+          transferData[blockNumber - i] = parseFloat(utils.formatUnits(totalVolume,decimals));
+        }).catch((error) => {
+          console.log(error);
+        });
+        promises.push(promise);
+    }
+    await Promise.all(promises);
+    return transferData;
+  };
   const getTransferData = async () => {
     try {
-      const latestBlockNumber = await alchemy.core.getBlockNumber();
-      console.log("Latest Block Number : ", latestBlockNumber);
+      let blockNumber = await alchemy.core.getBlockNumber();
+      console.log("Latest Block Number : ", blockNumber);
 
-      let transferData = {};
-      const result = await alchemy.core.getAssetTransfers({
-        contract_addresses: [erc20Address],
-        fromBlock: latestBlockNumber - 9,
-        toBlock: "latest",
-        category: ["erc20"],
-      });
-      console.log("result : ", result);
-
-      // Calculate transferVolume for each block
-      result.transfers.forEach((transfer) => {
-        if (transfer.value !== null) {
-          const blockNumber = parseInt(transfer.blockNum);
-          const { value } = transfer;
-          // Parse the transfer logs and calculate the total volume of transfers for each block
-          const intVal = parseInt(value);
-          if (transferData[blockNumber]) {
-            transferData[blockNumber] += intVal;
-          } else {
-            transferData[blockNumber] = intVal;
-          }
-        }
-      });
-
-      console.log("TransferData : ", transferData);
+      let transferData = await transformLogs(blockNumber);
+      console.log("TransferData after await transformLogs(): ", transferData);
       const cd = {
         labels: Object.keys(transferData), // array of block numbers
         datasets: [
@@ -93,25 +108,25 @@ const TransferChart = ({ erc20Address, alchemy }) => {
   };
 
   const addNewBlock = async (blockNumber) => {
-    let transferVolume = 0;
-    const result = await alchemy.core.getAssetTransfers({
-      contract_addresses: [erc20Address],
-      fromBlock: blockNumber,
-      toBlock: blockNumber,
-      category: ["erc20"],
+    
+    let logs = await alchemy.core.getLogs({
+      address: erc20Address,
+      topics: ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"],
+      fromBlock: utils.hexValue(blockNumber),
+      toBlock: utils.hexValue(blockNumber),
     });
 
-    // Extract the transfer details
-    result.transfers.forEach((transfer) => {
-      if (transfer.value !== null) {
-        const { value } = transfer;
-        // Parse the transfer logs and calculate the total volume of latest block
-        transferVolume += parseInt(value);
-      }
-    });
+    console.log("Transfer logs:", logs);
+    const totalVolume = getTotalVolumeTransfer(logs);
+    console.log("Total volume transfer in latest block:", totalVolume.toString());
+    
+    const contract = new ethers.Contract(erc20Address, contractABI, await alchemy.config.getProvider());
+    const decimals = await contract.decimals();
+    console.log("contract decimals : ", decimals);
+    const transferVolume = parseFloat(utils.formatUnits(totalVolume,decimals));
 
     setChartData((prevChartData) => {
-      if (prevChartData.labels) {
+      if (prevChartData.labels.length) {
         const newLabels = [...prevChartData.labels];
         if (newLabels[newLabels.length - 1].toString() !== blockNumber.toString()) {
           const newData = [...prevChartData.datasets[0].data];
